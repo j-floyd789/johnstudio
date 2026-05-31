@@ -81,7 +81,14 @@ def _run_with_retry(
     timeout: int = _GIT_TIMEOUT,
 ):
     """Run `cmd`, retry exponentially on transient git errors. Returns the
-    final CompletedProcess. Each attempt is bounded by `timeout`."""
+    final CompletedProcess. Each attempt is bounded by `timeout`.
+
+    Special-cases macOS APFS "Resource deadlock avoided": that's a kernel-level
+    fcntl deadlock that needs SECONDS to clear (not milliseconds). Standard
+    exponential backoff (0.5*2^n) caps too low. For that error specifically we
+    bump to a baseline of 8s with linear growth (8, 16, 24, 32, 40, 48, 60s)
+    so 7 attempts span ~3.5 minutes — enough for sibling git/file ops to drain.
+    """
     last = None
     for attempt in range(max_retries + 1):
         cp = _run_git(cmd, timeout=timeout)
@@ -90,7 +97,13 @@ def _run_with_retry(
         if not _is_transient(cp.stderr or ""):
             return cp
         last = cp
-        time.sleep(base_sleep * (2 ** attempt))
+        stderr = cp.stderr or ""
+        if "Resource deadlock" in stderr:
+            # APFS deadlock: longer linear waits, capped at 60s.
+            sleep_s = min(60.0, 8.0 * (attempt + 1))
+        else:
+            sleep_s = base_sleep * (2 ** attempt)
+        time.sleep(sleep_s)
     return last
 
 
