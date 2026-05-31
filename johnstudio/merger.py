@@ -29,6 +29,7 @@ def merge(
     dry_run: bool = False,
     assume_yes: bool = False,
     confirm: bool | None = None,
+    reason: str | None = None,
 ) -> dict:
     """Merge the worker's branch into base. Requires explicit confirmation.
 
@@ -98,7 +99,7 @@ def merge(
     decision_path = memory.write_decision(
         repo,
         decision_slug,
-        _decision_md(task_number, task["title"], worker_name, branch, pcfg.base_branch),
+        _decision_md(task_number, task["title"], worker_name, branch, pcfg.base_branch, reason),
     )
 
     # Knowledge graph.
@@ -154,13 +155,14 @@ def merge(
     }
 
 
-def _decision_md(task_number, title, worker_name, branch, base) -> str:
+def _decision_md(task_number, title, worker_name, branch, base, reason=None) -> str:
+    rationale = reason.strip() if reason and reason.strip() else "_(human-authored, paste here)_"
     return (
         f"# Decision: merge task-{task_number:04d}\n\n"
         f"- Task: {title}\n"
         f"- Worker: `{worker_name}`\n"
         f"- Branch: `{branch}` → `{base}`\n"
         f"- Merged: {datetime.utcnow().isoformat(timespec='seconds')}\n\n"
-        f"## Rationale\n_(human-authored, paste here)_\n\n"
+        f"## Rationale\n{rationale}\n\n"
         f"## Links\n- [[Project - X]]\n"
     )

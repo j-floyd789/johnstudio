@@ -64,11 +64,19 @@ export function TeamPage() {
   // Item 16 — live MCP-tool feed, fed from the project SSE `hook_event` frames.
   const [hookFeed, setHookFeed] = React.useState<HookFeedItem[]>([]);
   const hookSeqRef = React.useRef(0);
+  // Once the task reaches a terminal state there is nothing left to poll;
+  // stop the 5-endpoint fan-out so a finished task left open in a tab
+  // doesn't hammer the backend forever.
+  const stoppedRef = React.useRef(false);
 
   const poll = React.useCallback(async () => {
+    if (stoppedRef.current) return;
     try {
       const s = await teamStatus(pid, tn);
       setState(s);
+      if (s.status === "merged" || s.status === "rejected" || s.status === "cancelled") {
+        stoppedRef.current = true;
+      }
       if (s.plan_exists && !rawPlan) {
         try {
           const r = await teamPlanRaw(pid, tn);

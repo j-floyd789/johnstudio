@@ -1,5 +1,9 @@
 # JohnStudio
 
+[![CI](https://github.com/j-floyd789/johnstudio/actions/workflows/ci.yml/badge.svg)](https://github.com/j-floyd789/johnstudio/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+
 > *What are we building today?*
 
 JohnStudio is a **local-first AI software studio**. You pick a repo, type one high-level task, and JohnStudio coordinates locally-authenticated AI coding CLIs (Claude Code, Codex, Gemini CLI, …) as a bounded team of workers operating in isolated git worktrees.
@@ -22,6 +26,20 @@ There are two surfaces: the **CLI** (always works) and a **local desktop UI** (F
 - It does **not** scrape web UIs.
 - It does **not** auto-merge. You always confirm.
 - It does **not** spawn unbounded agents. Workers can only emit `HANDOFF_REQUEST.md`; the orchestrator decides whether to spawn more.
+
+## Quickstart (60 seconds, no model usage)
+
+```bash
+pip install -e .
+johnstudio init                                   # creates ~/.johnstudio, imports seeds
+johnstudio add-project demo /path/to/your/repo
+johnstudio run demo "add a hello endpoint" --stub-only   # runs the full pipeline offline
+johnstudio status demo 1
+```
+
+`--stub-only` drives the entire orchestrate → collect → review → merge flow with the
+local `terminal_stub` worker, so you can exercise everything before wiring up real CLIs.
+For the desktop UI, see [UI quick start](#ui-quick-start) below.
 
 ## Status
 

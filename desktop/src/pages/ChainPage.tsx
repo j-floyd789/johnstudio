@@ -51,10 +51,20 @@ export function ChainPage() {
   const [rejectOpen, setRejectOpen] = React.useState(false);
   const [rejectReason, setRejectReason] = React.useState("");
 
+  // Stop the 3s poll once the chain reaches a terminal phase, or after the
+  // task 404s (deleted) — otherwise a finished/missing task spams the backend
+  // and a "Reload failed" toast every 3 seconds forever.
+  const stoppedRef = React.useRef(false);
+
   async function refresh() {
+    if (stoppedRef.current) return;
     try {
       const s = await chainStatus(pid, tn);
       setStatus(s);
+      const phase = s.current?.phase;
+      if (phase === "merged" || phase === "rejected") {
+        stoppedRef.current = true;
+      }
       // Pull artifacts that exist
       const wanted = ["rfc", "rfc_review", "result"];
       // Add review_<n> for every reviewing phase
@@ -69,6 +79,8 @@ export function ChainPage() {
       }
       setArtifacts(out);
     } catch (e: any) {
+      // A 404 means the task is gone; stop polling so we don't toast forever.
+      if (e.status === 404) stoppedRef.current = true;
       toast.push("bad", `Reload failed: ${e.detail || e.message}`);
     }
   }

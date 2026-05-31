@@ -135,12 +135,13 @@ export const mergeTask = (
   worker_name: string,
   confirm: boolean,
   dry_run = false,
+  reason?: string,
 ) =>
   http<MergeResponse>(
     `/api/projects/${project_id}/tasks/${task_number}/merge`,
     {
       method: "POST",
-      body: JSON.stringify({ worker_name, confirm, dry_run }),
+      body: JSON.stringify({ worker_name, confirm, dry_run, reason }),
     },
   );
 
@@ -182,7 +183,7 @@ export const getResults = (project_id: number, task_number: number) =>
 
 export const getDiffs = (project_id: number, task_number: number) =>
   http<ArtifactFile[]>(
-    `/api/projects/${project_id}/tasks/${task_number}/diffs`,
+    `/api/projects/${project_id}/tasks/${task_number}/diffs/files`,
   );
 
 export const getLogs = (project_id: number, task_number: number) =>
@@ -426,7 +427,7 @@ export interface TeamState {
   task_db_id: number;
   task_number: number;
   project_name: string;
-  status: "planning" | "running" | "reviewing" | "merged" | "rejected";
+  status: "planning" | "running" | "reviewing" | "merged" | "rejected" | "cancelled";
   plan_path: string;
   plan_exists: boolean;
   plan_valid?: boolean;

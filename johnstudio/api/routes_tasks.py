@@ -133,6 +133,7 @@ def merge_task(project_id: int, task_number: int, payload: MergeRequest) -> dict
             payload.worker_name,
             dry_run=payload.dry_run,
             confirm=payload.confirm,
+            reason=payload.reason,
         )
     except merger.MergeAborted as e:
         raise HTTPException(status_code=409, detail=str(e))
@@ -198,8 +199,13 @@ def get_results(project_id: int, task_number: int) -> list[dict]:
     return _read_dir_listing(_helpers.task_folder(repo, task_number) / "results")
 
 
-@router.get("/{task_number}/diffs")
-def get_diffs(project_id: int, task_number: int) -> list[dict]:
+# NOTE: `/diffs` (above) returns the structured per-worker diff payload used by
+# the Team diff viewer. This route serves the raw diff FILES as artifacts (same
+# shape as results/logs) for the Task page. It MUST live on a distinct path —
+# two handlers on the same path silently shadow each other (FastAPI dispatches
+# to the first-registered one), which previously made this list unreachable.
+@router.get("/{task_number}/diffs/files")
+def get_diff_files(project_id: int, task_number: int) -> list[dict]:
     _, repo = _project_name_or_404(project_id)
     return _read_dir_listing(_helpers.task_folder(repo, task_number) / "diffs")
 

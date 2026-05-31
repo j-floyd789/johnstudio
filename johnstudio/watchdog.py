@@ -69,8 +69,14 @@ def _pid_alive(pid: int | None) -> bool:
     try:
         os.kill(int(pid), 0)
         return True
-    except (ProcessLookupError, PermissionError):
+    except ProcessLookupError:
         return False
+    except PermissionError:
+        # The process EXISTS but is owned by another user — signalling is
+        # denied, not that it's gone. Treat as alive so we never false-reap a
+        # live worker (which would abandon it to keep burning provider quota).
+        # Matches spawner._pid_alive's handling.
+        return True
     except Exception:
         return False
 

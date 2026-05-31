@@ -476,10 +476,18 @@ def _kill_run_pid(run_id: int) -> None:
         conn.close()
     if not pid:
         return
+    # Workers run as `sh -c 'cat | claude | tee'` in their own session
+    # (start_new_session=True), so SIGTERM to just the sh pid orphans the model
+    # child — it keeps running and burning provider quota. Signal the whole
+    # process GROUP so the model child dies too. Fall back to the bare pid if
+    # the group lookup fails (process already gone).
     try:
-        os.kill(int(pid), signal.SIGTERM)
+        os.killpg(os.getpgid(int(pid)), signal.SIGTERM)
     except (ProcessLookupError, PermissionError, OSError):
-        pass
+        try:
+            os.kill(int(pid), signal.SIGTERM)
+        except (ProcessLookupError, PermissionError, OSError):
+            pass
     # Mark the run row so the UI shows why it died.
     conn = db.connect()
     try:

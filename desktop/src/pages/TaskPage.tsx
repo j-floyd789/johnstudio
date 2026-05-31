@@ -163,7 +163,7 @@ export function TaskPage() {
 
   async function doMerge(dryRun: boolean) {
     try {
-      const out = await mergeTask(pid, tn, mergeWorker, !dryRun && true, dryRun);
+      const out = await mergeTask(pid, tn, mergeWorker, !dryRun && true, dryRun, mergeReason);
       if (dryRun) {
         toast.push("ok", `Dry-run exit=${out.exit_code}`);
       } else if (out.merged) {
