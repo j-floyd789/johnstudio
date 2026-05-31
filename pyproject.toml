@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "johnstudio"
+version = "0.1.0"
+description = "Local-first AI dev-team orchestrator. Coordinates locally-authenticated AI coding CLIs in isolated git worktrees with deterministic skill routing and Obsidian-compatible memory."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "John Floyd" }]
+dependencies = [
+    "typer>=0.12",
+    "rich>=13.7",
+    "pydantic>=2.6",
+    "pyyaml>=6.0",
+    "fastapi>=0.110",
+    "uvicorn>=0.27",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "httpx>=0.27",
+]
+
+[project.scripts]
+johnstudio = "johnstudio.cli:app"
+
+[tool.setuptools.packages.find]
+include = ["johnstudio*"]
+exclude = ["tests*"]
+
+[tool.setuptools.package-data]
+johnstudio = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

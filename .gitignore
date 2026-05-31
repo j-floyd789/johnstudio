@@ -1,0 +1,13 @@
+# runtime / generated
+.johnstudio/
+__pycache__/
+*.pyc
+.venv/
+venv/
+node_modules/
+dist/
+build/
+*.egg-info/
+.DS_Store
+*.db
+*.sqlite3

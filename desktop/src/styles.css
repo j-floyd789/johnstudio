@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    font-family:
+      -apple-system,
+      BlinkMacSystemFont,
+      "Inter",
+      "SF Pro Text",
+      "Segoe UI",
+      Roboto,
+      sans-serif;
+  }
+  ::selection {
+    background: #2a3a4a;
+  }
+  pre,
+  code,
+  kbd {
+    font-family: ui-monospace, Menlo, Monaco, monospace;
+  }
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #2a2a31;
+    border-radius: 6px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #3a3a43;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-lg border border-line bg-bg-2 p-4;
+  }
+  .btn {
+    @apply inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors;
+  }
+  .btn-primary {
+    @apply btn bg-accent text-bg-0 hover:bg-accent/90;
+  }
+  .btn-ghost {
+    @apply btn border border-line text-ink-1 hover:bg-bg-3;
+  }
+  .btn-danger {
+    @apply btn bg-bad/90 text-white hover:bg-bad;
+  }
+  .input {
+    @apply w-full rounded-md border border-line bg-bg-1 px-3 py-2 text-sm text-ink-0 placeholder-ink-3 focus:border-accent focus:outline-none;
+  }
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full border border-line px-2 py-0.5 text-xs;
+  }
+  .pill {
+    @apply inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium;
+  }
+}

@@ -1,0 +1,120 @@
+version: 1
+
+user:
+  name: John
+
+runtime:
+  max_active_agents: 6
+  max_agent_depth: 1
+  default_timeout_minutes: 45
+  require_human_merge: true
+  allow_worker_spawn: false
+  default_stub_only: false
+
+tools:
+  tmux:
+    command: tmux
+  git:
+    command: git
+
+workers:
+  terminal_stub:
+    provider: terminal
+    command: python -m johnstudio.workers.stub
+    role: test_worker
+    can_edit: true
+    worktree: true
+    max_runtime_minutes: 5
+    always_available: true
+
+  claude_backend:
+    provider: claude
+    command: claude
+    role: backend_implementer
+    can_edit: true
+    worktree: true
+    max_runtime_minutes: 45
+
+  claude_frontend:
+    provider: claude
+    command: claude
+    role: frontend_implementer
+    can_edit: true
+    worktree: true
+    max_runtime_minutes: 45
+
+  codex_tests:
+    provider: codex
+    command: codex
+    role: test_writer
+    can_edit: true
+    worktree: true
+    max_runtime_minutes: 30
+
+  gemini_review:
+    provider: gemini
+    command: gemini
+    role: architecture_reviewer
+    can_edit: false
+    worktree: false
+    max_runtime_minutes: 30
+
+  security_review:
+    provider: claude
+    command: claude
+    role: security_reviewer
+    can_edit: false
+    worktree: false
+    max_runtime_minutes: 30
+
+  # Read-only Claude worker used as the default for chain-mode roles that
+  # produce a single markdown artifact (architect / rfc_reviewer / reviewer).
+  # can_edit: false enforces role discipline — see workers/claude.py.
+  claude_review:
+    provider: claude
+    command: claude
+    role: code_reviewer
+    can_edit: false
+    worktree: false
+    max_runtime_minutes: 30
+
+safety:
+  blocked_paths:
+    - ".env"
+    - ".env.*"
+    - "**/*.pem"
+    - "**/*.key"
+    - "~/.ssh/**"
+    - "~/.aws/**"
+    - "~/.config/gcloud/**"
+  dangerous_commands:
+    - "rm -rf"
+    - "sudo"
+    - "curl | bash"
+    - "wget | bash"
+    - "git push --force"
+    - "chmod -R 777"
+  require_approval_commands:
+    - "npm install"
+    - "pnpm install"
+    - "pip install"
+    - "brew install"
+    - "docker compose up"
+    - "git push"
+
+skill_registry:
+  max_skills_per_agent: 6
+  max_skill_tokens_per_agent: 8000
+  max_single_skill_tokens: 2500
+  use_distilled_skills: true
+  imported_skills_default_enabled: false
+  imported_skills_default_trust_level: unreviewed
+
+memory:
+  use_markdown_vault: true
+  use_knowledge_graph: true
+  use_wiki_links: true
+  use_yaml_frontmatter: true
+  use_tags: true
+  auto_tag_after_collect: true
+  auto_link_after_collect: true

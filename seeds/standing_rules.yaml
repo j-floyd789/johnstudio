@@ -1,0 +1,82 @@
+# Standing rules — deterministic plan augmentations.
+#
+# After the lead planner produces TEAM_PLAN.md, the orchestrator walks
+# these rules and adds any specialist whose `trigger` matches but whose
+# role isn't already in the plan. This is the "checklist that disappears
+# into the runtime" pattern from Cline / ECC: real dev teams have
+# things they always do (write tests, update README, run security
+# scans on sensitive surfaces) and shouldn't rely on the planner to
+# remember each time.
+#
+# Triggers (any one matching is enough):
+#   - any_file_pattern: [glob, glob, …]
+#       Match against every editor specialist's expected output path.
+#   - mentions_in_task: [keyword, keyword, …]
+#       Case-insensitive substring match against the user's task text.
+#   - always: true
+#       Unconditional augmentation. Use sparingly.
+#
+# Each rule names exactly one role to add. The role must exist in the
+# catalog. We attach to a VP automatically (the role's home VP) and
+# craft a synthesized brief from the trigger.
+
+rules:
+  # If any Python is being written, make sure tests are too.
+  - id: tests-for-python
+    trigger:
+      any_file_pattern: ["*.py", "**/*.py"]
+    add:
+      role: test-automator
+      brief: "Write pytest tests for the new/changed Python code."
+      output: "tests/test_TEAM_<i>.py"
+
+  # If any non-trivial feature is being added, document it.
+  - id: docs-for-new-feature
+    trigger:
+      mentions_in_task: ["add ", "new endpoint", "new feature", "new page"]
+    add:
+      role: technical-writer
+      brief: "Update README + CHANGELOG for the new feature."
+      output: "README.md"
+
+  # If the user mentions auth, payment, secrets, or data the user
+  # provided — always run the security auditor.
+  - id: sec-on-sensitive-surfaces
+    trigger:
+      mentions_in_task: [
+        "auth", "login", "password", "token", "session", "api key",
+        "payment", "stripe", "checkout", "billing",
+        "user input", "form submission", "upload",
+        "sql", "database", "query",
+      ]
+    add:
+      role: security-auditor
+      brief: "Threat-model the new code against OWASP top 10 + project-specific risks."
+      output: "SECURITY_REVIEW.md"
+
+  # Frontend changes need accessibility eyes.
+  - id: a11y-on-frontend
+    trigger:
+      any_file_pattern: ["**/*.html", "**/*.css", "**/*.tsx", "**/*.jsx"]
+    add:
+      role: accessibility-auditor
+      brief: "WCAG check on new/modified UI surfaces."
+      output: "A11Y_REVIEW.md"
+
+  # Dependency manifests changed → dependency review.
+  - id: deps-review-on-manifest-change
+    trigger:
+      any_file_pattern: ["requirements.txt", "package.json", "Cargo.toml", "pyproject.toml", "go.mod"]
+    add:
+      role: dependency-reviewer
+      brief: "Audit every added/upgraded dependency for maintenance, CVEs, license."
+      output: "DEPS_REVIEW.md"
+
+  # Always make sure there's a code reviewer reading the implementer's diff.
+  - id: always-have-code-reviewer
+    trigger:
+      always: true
+    add:
+      role: code-reviewer
+      brief: "Read the implementer's diff and write a structured REVIEW.md."
+      output: "REVIEW.md"
