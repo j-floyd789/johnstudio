@@ -46,8 +46,59 @@ def _is_transient(stderr: str) -> bool:
 
 def _git_env() -> dict:
     env = os.environ.copy()
+    # Suppress fcntl deadlock against concurrent external worktrees.
     env["GIT_OPTIONAL_LOCKS"] = "0"
+    # Disable git's internal fsmonitor daemon — its mmap'd state file is
+    # another deadlock surface on macOS APFS when something else heavy
+    # (pandas read_csv, npm install) is mmaping unrelated files at the
+    # same time.
+    env["GIT_FSMONITOR"] = "false"
     return env
+
+
+def _git_low_io_args() -> list[str]:
+    """Per-invocation `-c k=v` config to minimise concurrent mmap surface.
+    Used on worktree-add / branch-D / prune; not on read-only `worktree list`."""
+    return [
+        "-c", "core.fsmonitor=false",
+        "-c", "index.threads=1",   # serialise index reads, less concurrent mmap
+        "-c", "pack.threads=1",
+        "-c", "core.preloadIndex=false",
+    ]
+
+
+def _wait_for_quiet_disk(max_wait_s: int = 300, threshold_mbs: float = 25.0) -> float:
+    """Block until macOS disk0 throughput drops below `threshold_mbs` MB/s
+    sustained over two consecutive samples, or `max_wait_s` elapses.
+
+    Returns the actual wait time in seconds. On any sampling error or non-
+    macOS platform we return 0 immediately — callers must still rely on
+    retry-with-backoff for the deadlock case.
+
+    Rationale: macOS APFS fires `Resource deadlock avoided` when concurrent
+    mmap+fcntl from unrelated processes overlap. Best-effort dodge: wait for
+    the disk to be quiet first, then proceed."""
+    import time as _t
+    start = _t.time()
+    try:
+        prev_mbs = None
+        while _t.time() - start < max_wait_s:
+            # `iostat -d disk0 -c 1` prints a one-shot sample. The 3rd column is MB/s.
+            cp = subprocess.run(
+                ["iostat", "-d", "disk0", "-c", "1"],
+                text=True, capture_output=True, timeout=3,
+            )
+            if cp.returncode != 0:
+                return 0.0
+            last = cp.stdout.strip().splitlines()[-1].split()
+            mbs = float(last[2]) if len(last) >= 3 else 0.0
+            if mbs < threshold_mbs and (prev_mbs is None or prev_mbs < threshold_mbs):
+                return _t.time() - start
+            prev_mbs = mbs
+            _t.sleep(2)
+        return _t.time() - start
+    except Exception:
+        return 0.0
 
 
 # Default wall-clock ceiling for any single git invocation. A corrupted
@@ -129,9 +180,15 @@ def add_worktree(repo_path: str | Path, worktree_path: str | Path, branch: str, 
     Path(worktree_path).parent.mkdir(parents=True, exist_ok=True)
 
     with _GIT_WRITE_LOCK:
+        # Best-effort: wait for the disk to be quiet before attempting the
+        # worktree-add. Dodges most APFS deadlocks vs concurrent unrelated
+        # mmap-heavy processes (pandas read_csv, npm install). Caps at 5 min
+        # — if disk stays busy longer we go ahead and rely on retry.
+        _wait_for_quiet_disk(max_wait_s=300, threshold_mbs=25.0)
+        lowio = _git_low_io_args()
         # Attempt 1: fresh branch with -b (fails fast if branch already exists,
         # which is fine — most spawns hit this happy path with no contention).
-        cp = _run_with_retry(["git", "-C", repo, "worktree", "add", wt, "-b", branch, base])
+        cp = _run_with_retry(["git", "-C", repo, *lowio, "worktree", "add", wt, "-b", branch, base])
         if cp.returncode == 0:
             _link_node_modules(repo, wt)
             return
@@ -142,7 +199,7 @@ def add_worktree(repo_path: str | Path, worktree_path: str | Path, branch: str, 
         # spawn but no worktree currently references it. Safe because git
         # refuses -B against a branch a worktree owns — so if some other
         # worktree is using it we get a clean error instead of silent damage.
-        cp2 = _run_with_retry(["git", "-C", repo, "worktree", "add", "-B", branch, wt, base])
+        cp2 = _run_with_retry(["git", "-C", repo, *lowio, "worktree", "add", "-B", branch, wt, base])
         if cp2.returncode == 0:
             _link_node_modules(repo, wt)
             return
@@ -164,7 +221,7 @@ def add_worktree(repo_path: str | Path, worktree_path: str | Path, branch: str, 
                 f"  2) {second_err}\n"
                 f"  branch -D {branch}: {(del_cp.stderr or del_cp.stdout or '').strip()}"
             )
-        cp3 = _run_with_retry(["git", "-C", repo, "worktree", "add", wt, "-b", branch, base])
+        cp3 = _run_with_retry(["git", "-C", repo, *lowio, "worktree", "add", wt, "-b", branch, base])
         if cp3.returncode == 0:
             _link_node_modules(repo, wt)
             return
